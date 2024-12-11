@@ -21,13 +21,22 @@ class RMSNorm(torch.nn.Module):
         self.use_flash_rmsnorm = config.get("use_flash_rmsnorm", False)
 
         if self.use_flash_rmsnorm:
-            from flash_attn.ops.rms_norm import rms_norm as rmsnorm_func
+            # Use triton impl instead of csrc/layer_norm:
+            # https://github.com/Dao-AILab/flash-attention/issues/794
+            # This saves us a lot of installation time and possibly errors
+            from flash_attn.ops.triton import layer_norm
 
-            self.rmsnorm_func = rmsnorm_func
+            self.rmsnorm_func = layer_norm.RMSNorm(self.hidden_size, eps=self.eps)
+
+            # The original implementation was a functional interface that received trainable 
+            # weights as input. Because the Triton implementation is class-based, we load 
+            # those trained weights in by setting it as a property of the class instead.
+            self.rmsnorm_func.weight = self.scale
+
 
     def forward(self, x):
         if self.use_flash_rmsnorm:
-            return self.rmsnorm_func(x, self.scale, self.eps)
+            return self.rmsnorm_func(x)
         else:
             y = x / (x.norm(2, dim=-1, keepdim=True) * self.hidden_size ** (-1.0 / 2) + self.eps)
             return self.scale * y

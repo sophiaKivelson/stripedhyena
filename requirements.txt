@@ -1,5 +1,11 @@
-tokenizers 
-transformers
+# some of these were pulled from the Doc
+torch
+maturin
+ninja
+tokenizers==0.14.1
+einops
+triton
+transformers==4.34.1
 flash_attn
 
 ### flashfftconv: uncomment both for use_flash_depthwise or use_flashfft
